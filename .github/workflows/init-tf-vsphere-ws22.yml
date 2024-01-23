@@ -1,0 +1,221 @@
+# This is a GitHub Action workflow definition
+# The workflow generates a main.tf Terraform configuration file for a vSphere environment
+
+# The name of the workflow is 'Generate vSphere WS22 main.tf'
+name: 'Init vSphere WS22 CD'
+
+# This workflow is manually triggered and requires user input
+on:
+  workflow_dispatch:
+    inputs:
+      # Various inputs for vSphere environment details, deployment parameters, and vSphere object information
+      # Descriptions for each input are provided for the user
+      hostname:
+        description: 'Enter desired hostname, vCenter IP, vCenter User, separated by commas i.e. "windows-box-01,192.168.1.150,admin@domain.local"'
+        required: true
+      vsphere_cluster:
+        description: 'Enter the name of the vSphere cluster to deploy to'
+        required: true
+      vsphere_folder:
+        description: 'Enter the path of the existing folder to deploy to i.e. "Path/To/VM"'
+        required: true
+      vsphere_datastore:
+        description: 'Enter the vSphere cluster and datastore to deploy to, separated by commas i.e. "DATACENTER1,DATASTORE_NAME"'
+        required: true
+      vsphere_network:
+        description: 'Enter the vSphere port group connect the VM to'
+        required: true
+      network_details:
+        description: 'Enter ip address, network subnet cidr, and network gateway for the port group, separated by commas i.e. "192.168.1.10,24,192.168.1.1"'
+        required: true
+      dns_servers:
+        description: 'Enter DNS server addresses to be used, separated by commas i.e. "192.168.1.100,192.168.1.200". Leave Blank to use Cloudflare DNS'
+        required: false
+      cpu_ram:
+        description: 'Enter the number of CPUs and the amount of RAM (MB) to allocate to the vm, separated by a comma i.e. "4,8192"'
+        required: true
+      AD_Details:
+        description: 'Enter ADJoin, ADPass, ADOU, ADUser, and ADDomain, separated by commas i.e. "true,pass,user,domain.local". Leave empty if no domain join is required.'
+        required: false
+      vm_disks:
+        description: 'Enter the size of each additional disk to add in GB, separated by commas. For example: "100,200". Leave empty if no additional disks are needed.'
+        required: false
+
+# The permissions for this workflow are defined
+# The workflow only needs read access to the contents of the repository
+permissions:
+  contents: read
+
+# The jobs for the workflow are defined
+jobs:
+  generate-main-tf:
+    # This job is for generating the main.tf file with Terraform actions
+    name: 'Terraform WS22 main.tf Generation'
+    
+    # The job is run on a self-hosted runner with a 'devops' label
+    runs-on: [self-hosted, devops]
+    
+    # The environment for the job is 'production'
+    environment: production
+
+    # The steps for the job are defined
+    steps:
+      # The repository is checked out to the GitHub Actions runner
+      - name: Checkout
+        uses: actions/checkout@v3    
+
+      # This step checks if main.tf already exists in the repo
+      - name: Check if main.tf exists
+        run: |
+          # It sets an environment variable 'file_exists' to 'true' or 'false' based on whether main.tf exists
+          if [ -f "main.tf" ]; then
+            echo "main.tf already exists, skipping file generation."
+            echo "file_exists=true" >> $GITHUB_ENV
+          else
+            echo "main.tf does not exist, continuing with file generation."
+            echo "file_exists=false" >> $GITHUB_ENV
+          fi
+        id: check-main-tf
+      
+      # If main.tf does not exist, this step generates a new one using user input
+      - name: Generate main.tf with user input
+        if: ${{ env.file_exists }} == 'false'
+        run: |
+          # It parses various input parameters and generates the main.tf file using them
+          # If any optional parameters are not provided, it handles them gracefully
+          
+          # Using the Internal Field Separator (IFS) variable, parse the input strings into individual variables
+          IFS=',' read -r hostname vsphere_ip vsphere_user <<< "${{ github.event.inputs.hostname }}"
+          IFS=',' read -r vsphere_datacenter vsphere_datastore <<< "${{ github.event.inputs.vsphere_datastore }}"
+          IFS=',' read -r vm_ip vm_netmask vm_gateway <<< "${{ github.event.inputs.network_details }}"
+          # Similarly, parse the CPU and memory details string into individual variables
+          IFS=',' read -r num_cpus memory <<< "${{ github.event.inputs.cpu_ram }}"
+          # Remove leading and trailing whitespace from the Active Directory details string
+          trimmed_ad_details=$(echo "${{ github.event.inputs.AD_Details }}" | xargs)
+          # Initialize an empty string for the AD details
+          ad_details_str=""
+          # If the AD details string is not empty, parse it into individual variables and build the details string
+          if [ ! -z "${trimmed_ad_details}" ]; then
+            IFS=',' read -r ADJoin ADPass ADOU ADUser ADDomain <<< "${trimmed_ad_details}"
+            ad_details_str=$'ADJoin         = '${ADJoin}$'\n     ADPass         = "'${ADPass}$'"\n     ADOU           = "'${ADOU}$'"\n     ADUser         = "'${ADUser}$'"\n     ADDomain       = "'${ADDomain}$'"\n     vm_dns_domain  = "'${ADDomain}$'"\n'
+          else
+            ad_details_str=$'ADJoin         = false\n     ADPass         = "'$'"\n     ADOU           = "'$'"\n     ADUser         = "'$'"\n     ADDomain       = "'$'"\n     vm_dns_domain  = "'$'"\n'
+          fi
+          # Remove leading and trailing whitespace from the disk details string
+          trimmed_disks=$(echo "${{ github.event.inputs.vm_disks }}" | xargs)
+          # If the disks string is not empty, parse it into an array and build the disks string
+          if [ ! -z "${trimmed_disks}" ]; then
+            IFS=',' read -ra disk_sizes <<< "${trimmed_disks}"
+            for i in "${!disk_sizes[@]}"; do
+              disks_str+="{ size = ${disk_sizes[i]}, thinprov = true, unit_number = $((i+1)) },"
+            done
+            disks_str=${disks_str%?}  # Removes the last character, which is the trailing comma
+          fi
+          # Initialize an empty string for the DNS servers
+          dns_servers_str=""
+          # Remove leading and trailing whitespace from the DNS servers string
+          trimmed_dns_servers=$(echo "${{ github.event.inputs.dns_servers }}" | xargs)
+          # If the DNS servers string is not empty, parse it into an array and build the DNS servers string
+          if [ ! -z "${trimmed_dns_servers}" ]; then
+            IFS=',' read -ra dns_servers <<< "${trimmed_dns_servers}"
+            for dns_server in "${dns_servers[@]}"; do
+              dns_servers_str+='"'"$dns_server"'",'
+            done
+            dns_servers_str=${dns_servers_str%?}  # Removes the last character, which is the trailing comma
+            dns_servers_str="vm_dns_servers = [${dns_servers_str}]"
+          else
+            dns_servers_str='vm_dns_servers = ["1.1.1.1","1.0.0.1"]'
+          fi
+
+          cat > main.tf << EOF
+          # Variables to be populated by GitHub Secrets at runtime
+          # vCenter Password
+          variable "vsphere_password" {}
+          
+          # VM Password
+          variable "vm_password" {}
+          
+          # Define the required version of Terraform and the required vSphere and AWS provider version
+          terraform {
+            required_version = ">= 1.5.0"
+            required_providers {
+              vsphere = {
+                source  = "hashicorp/vsphere"
+                version = "2.6.1"
+              }
+              random = {
+                source  = "hashicorp/random"
+                version = ">= 3.6.0"
+              }
+              template = {
+                source  = "hashicorp/template"
+                version = ">= 2.2.0"
+              }
+            }
+          }
+          
+          # Connection to vSphere environment
+          provider "vsphere" {
+            user                  = "$vsphere_user"
+            password              = var.vsphere_password
+            vsphere_server        = "$vsphere_ip"
+            allow_unverified_ssl  = true
+          }
+          
+          # Define the module source and its location
+          module "vsphere-ws22" {
+            source = "./modules/vsphere-ws-22"
+          
+            # Define vSphere Information 
+            vsphere_config = {
+              vcenter_server = "$vsphere_ip"
+              user           = "$vsphere_user"
+              datacenter     = "$vsphere_datacenter"
+              cluster        = "${{ github.event.inputs.vsphere_cluster }}"
+              datastore      = "$vsphere_datastore"
+              vm_network     = "${{ github.event.inputs.vsphere_network }}"
+              vm_folder      = "${{ github.event.inputs.vsphere_folder }}"
+            }
+                      
+            // Define Host Information 
+            ws22 = {
+               // VM Hostname
+               hostname            = "$hostname"
+               vm_password         = var.vm_password
+              
+               // VM Specifications
+               num_cpus            = "$num_cpus"
+               memory              = "$memory"
+               disk_size           = "150"
+               vm_disks            = [ ${disks_str} ]
+               vm_timezone         = "085"
+               template            = "WS22-PKR-V1"           
+               
+               // Network Details
+               vm_ip          = "$vm_ip"
+               vm_netmask     = "$vm_netmask"               
+               vm_gateway     = "$vm_gateway"
+               ${dns_servers_str}
+               
+               // AD Details
+               $ad_details_str
+            }  
+
+          }
+          EOF
+
+          # Print the generated main.tf
+          cat main.tf
+
+      # If a new main.tf file was created, this step commits and pushes it to the repository
+      - name: Commit and push main.tf
+        if: ${{ env.file_exists }} == 'false'
+        run: |
+          # It sets the git user name and email to 'GitHub Actions'
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "github-actions@users.noreply.github.com"
+          
+          # It stages, commits, and pushes the new main.tf file
+          git add main.tf
+          git commit -m "Add generated main.tf"
+          git push

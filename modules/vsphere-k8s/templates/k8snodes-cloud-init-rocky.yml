@@ -1,0 +1,108 @@
+#cloud-config
+
+# This section is for creating administrative user
+users:
+  # Default user
+  - default
+  # Creating a new user with the provided username
+  - name: ${username} 
+  # Granting the user sudo privileges without needing a password
+    sudo: ALL=(ALL) NOPASSWD:ALL 
+  # Adding the user to the 'wheel' group
+    groups: wheel 
+  # Setting the default shell for the user to bash
+    shell: /bin/bash 
+  # Adding the public key to the authorized keys for ssh
+    ssh_authorized_keys:
+      - ${public-key} 
+
+# This section is for installing required software packages
+packages:
+  # Installing vim, a text editor
+  - vim 
+  # Installing nano, another text editor
+  - nano 
+  # Installing network tools for network management
+  - net-tools 
+  # Install 'multipath-tools' for managing multipath devices
+  - multipath-tools
+  # Install 'nfs-utils' to provide tools for managing the Network File System (NFS)
+  - nfs-utils
+
+# Set the IP addresses
+write_files:
+  - content: |
+      # Setting the connection ID as the provided management interface name
+      [connection]
+      id=${mgmt-int-name}
+      # Setting the connection type as ethernet
+      type=ethernet
+      # Setting the priority for the autoconnection
+      autoconnect-priority=-999
+      # Setting the interface name as the provided management interface name
+      interface-name=${mgmt-int-name}
+
+      [ethernet]
+
+      [ipv4]
+      # Setting the IPv4 address and the gateway
+      address1=${mgmt-ip-addr}${mgmt-ip-subnet},${mgmt-ip-gw}
+      # Setting the DNS server addresses
+      dns=1.1.1.1;1.0.0.0.1;
+      # Setting the IP configuration method as manual
+      method=manual
+
+      [proxy]
+    # Writing this config to the specific path
+    path: /etc/NetworkManager/system-connections/${mgmt-int-name}.nmconnection
+
+# This section is for activating network changes
+runcmd:
+  # Changing the permissions of the config file
+  - sudo chmod 600 /etc/NetworkManager/system-connections/${mgmt-int-name}.nmconnection
+  # Changing the ownership of the config file to root
+  - sudo chmod root:root /etc/NetworkManager/system-connections/${mgmt-int-name}.nmconnection
+  # Setting the system timezone
+  - sudo timedatectl set-timezone ${timezone}
+  # Restarting NetworkManager to apply the changes
+  - sudo systemctl restart NetworkManager
+  # Creating a file to indicate cloud-init has completed
+  - sudo touch /etc/cloud/cloud-init.done
+  # Creating a directory for sssd logs
+  - sudo mkdir -p /var/log/sssd
+  # Changing the permissions of the sssd logs directory
+  - sudo chmod 755 /var/log/sssd
+  # Upgrading the AWS CLI tool
+  - sudo pip3 install awscli --upgrade --user 
+  # Disable swap memory
+  - sudo swapoff -a 
+  # Disable the system's firewall
+  - sudo systemctl disable firewalld
+  # Stop the system's firewall
+  - sudo systemctl stop firewalld
+  # Flush all current rules from iptables
+  - sudo iptables --flush
+  # Flush all rules from the NAT table in iptables
+  - sudo iptables -tnat --flush
+  # Default policy to accept for forward traffic in iptables
+  - sudo iptables -P FORWARD ACCEPT
+  # Default policy to accept for incoming traffic in iptables
+  - sudo iptables -P INPUT ACCEPT
+  # Default policy to accept for outgoing traffic in iptables
+  - sudo iptables -P OUTPUT ACCEPT
+  # Flush all rules from the NAT table in ip6tables
+  - sudo ip6tables -t nat -F
+  # Flush all rules from the mangle table in ip6tables
+  - sudo ip6tables -t mangle -F
+  # Flush all rules from ip6tables
+  - sudo ip6tables -F
+  # Delete all non-default chains in ip6tables
+  - sudo ip6tables -X
+  # Default policy to accept for incoming traffic in ip6tables
+  - sudo ip6tables -P INPUT ACCEPT
+  # Default policy to accept for forward traffic in ip6tables
+  - sudo ip6tables -P FORWARD ACCEPT
+  # Default policy to accept for outgoing traffic in ip6tables
+  - sudo ip6tables -P OUTPUT ACCEPT
+  # Remove any lines in /etc/fstab pertaining to swap
+  - sudo sed -i '/\sswap\s/d' /etc/fstab

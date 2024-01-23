@@ -1,0 +1,80 @@
+# Name of the workflow
+name: 'Execute vSphere Rocky 9.3 CD'
+
+# Define environment variables
+env:
+  # vSphere password used for authentication
+  TF_VAR_vsphere_password: ${{ secrets.VSPHERE_PASSWORD }}
+  # SSH password used for authentication
+  TF_VAR_ssh_password: ${{ secrets.SSH_PASSWORD }}  
+
+# Define the events that trigger the workflow
+on:
+  # Trigger the workflow manually from the Actions tab
+  workflow_dispatch:
+
+# Define permissions for this workflow
+permissions:
+  # Only read access to the contents is needed
+  contents: read
+
+# Define jobs in this workflow
+jobs:
+  # Define a job for Terraform actions
+  terraform:
+    # Name of the job
+    name: 'Terraform Rocky 9.3 vSphere Pipeline'
+    # Define the type of runner that the job will run on
+    runs-on: [self-hosted, devops]
+    # Define the environment in which the job will run
+    environment: production
+
+    # Set default options for steps in this job
+    defaults:
+      run:
+        # Use the bash shell
+        shell: bash
+
+    # Define steps for this job
+    steps:
+    # Checkout the repository to the GitHub Actions runner 
+    - name: Checkout
+      uses: actions/checkout@v3
+                
+    # Setup Node.js environment with a specific version
+    - name: Node Setup
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+    
+    # Setup Terraform CLI on the runner
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+    
+    # Initialise your Terraform working directory
+    - name: Terraform Init
+      run: terraform init
+
+    # Generate an execution plan for Terraform
+    - name: Terraform Plan
+      run: terraform plan
+    
+    # Apply the changes required to reach the desired state of the configuration
+    - name: Terraform Apply
+      id: apply    
+      continue-on-error: true
+      run: terraform apply -auto-approve
+
+    # Check if Terraform Apply failed and set an output variable
+    - name: Check Terraform Apply Outcome
+      id: check
+      run: echo "apply_failed=${{ steps.apply.outcome == 'failure' }}" >> $GITHUB_ENV
+
+    # Destroy if Terraform Apply failed
+    - name: Terraform Apply Failure Handler
+      if: env.apply_failed == 'true'
+      id: failure-handler
+      run: |
+        echo "Terraform Apply failed. Initiating cleanup..."
+        terraform destroy -auto-approve
+        echo "cleanup_done=true" >> $GITHUB_ENV    

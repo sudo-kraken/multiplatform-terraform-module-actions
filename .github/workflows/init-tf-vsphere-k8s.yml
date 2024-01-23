@@ -1,0 +1,253 @@
+# Name of the workflow
+name: 'Init vSphere K8S CD'
+on:
+  # This workflow is triggered manually
+  workflow_dispatch:
+    # It requires several inputs provided by the user
+    inputs:
+      # These inputs are details for the vSphere environment, deployment parameters, and vSphere object information
+      vsphere_server:
+        description: 'Enter the vSphere Server IP, User, Datacenter, Cluster to deploy the K8S on, separated by commas, i.e. "192.168.1.100,user@domain.local,DATACENTER1,CLUSTER4"'
+        required: true
+      vsphere_stack:
+        description: 'Enter stack shorthand name and folder path to deploy to i.e."pe,PATH/TO/K8S Cluster" this is for a Production Environment into a K8S Cluster folder'
+        required: true
+      vsphere_datastore:
+        description: 'Enter the vSphere datastore to deploy the k8s on'
+        required: true
+      vsphere_network:
+        description: 'Enter the vSphere port group to connect the k8s to'
+        required: true
+      deployment_ip:
+        description: 'Enter ip address for the admin host 10.0.10.150, node ips follow this sequentially'
+        required: true        
+      deployment_cidr:
+        description: 'Enter network subnet cidr i.e. /22 or /24 with "/"'
+        required: true
+      deployment_gateway:
+        description: 'Enter network gateway cidr i.e. 10.0.10.1'
+        required: true        
+      number_of_nodes:
+        description: 'Enter the total number of nodes to deploy (masters and workers combined)'
+        required: true        
+      deployment_cpu:
+        description: 'Enter the number of CPUs to allocate to the k8s'
+        required: true
+        type: choice
+        options:
+        - '4'
+        - '8'
+        - '16'
+        - '32'
+      deployment_ram:
+        description: 'Enter the amount of RAM to allocate to the VM in MB'
+        required: true
+        type: choice
+        options:
+        - '8192'
+        - '16384'
+        - '32768'
+        - '65536'
+
+# Define permissions for this workflow
+permissions:
+  # Only read access to the contents is needed
+  contents: read
+
+# Define jobs in this workflow  
+jobs:
+  # Define a job for Terraform actions
+  generate-main-tf:
+    # Name of the job  
+    name: 'Terraform K8s main.tf Generation'
+    # Define the type of runner that the job will run on
+    runs-on: [self-hosted, devops]
+    # Define the environment in which the job will run
+    environment: production
+    
+    # Define steps for this job
+    steps:
+      # Checkout the repository to the GitHub Actions runner 
+      - name: Checkout
+        uses: actions/checkout@v3    
+
+      # Then we check if main.tf already exists in the repo          
+      - name: Check if main.tf exists
+        run: |
+          if [ -f "main.tf" ]; then
+            echo "main.tf already exists, skipping file generation."
+            echo "file_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "main.tf does not exist, continuing with file generation."
+            echo "file_exists=false" >> $GITHUB_OUTPUT
+          fi
+        id: check-main-tf
+      
+      # If main.tf does not exist, we generate a new one using user input
+      - name: Generate main.tf with user input
+        if: steps.check-main-tf.outputs.file_exists == 'false'
+        run: |
+          # Using the Internal Field Separator (IFS) variable, parse the input strings into individual variables
+          IFS=',' read -r vsphere_server vsphere_user vsphere_datacenter vsphere_cluster <<< "${{ github.event.inputs.vsphere_server }}"
+          cat > main.tf << EOF
+          # Variables to be populated by GitHub Secrets at runtime
+          # vCenter Password
+          variable "vsphere_password" {}
+          
+          # Define the required version of Terraform and the required vSphere and AWS provider version
+          terraform {
+            required_version = ">= 1.5.0"
+
+            required_providers {
+              vsphere = {
+                source = "hashicorp/vsphere"
+                version = "2.4.1"
+              }
+              
+            }
+            
+          }
+          
+          # Connection to vSphere environment
+          provider "vsphere" {
+            user                  = "$vsphere_user"
+            password              = var.vsphere_password
+            vsphere_server        = "$vsphere_server"
+            allow_unverified_ssl  = true
+          }
+          
+          # Define the module source and its location
+          module "vsphere-k8s" {
+            source = "./modules/vsphere-k8s" 
+          
+            # Define vSphere Information 
+            vsphere_config = {
+              vcenter_server = "$vsphere_server"
+              user           = "$vsphere_user"
+              datacenter     = "$vsphere_datacenter"
+              cluster        = "$vsphere_cluster"
+              datastore      = "<vsphere_datastore>"
+              vapp           = "k8s"
+              vm_network     = "<vsphere_network>"
+              vm_folder      = "<vm_folder>"
+            }
+          
+            # Define Global K8S Information 
+            k8s-global = {
+              username       = "k8sadmin"
+              timezone       = "Europe/London"
+              run_kubespray  = "yes"
+              kube_version   = "v1.26.0"
+              private_key    = "id_rsa-k8s-on-vmware"
+              public_key     = "id_rsa-k8s-on-vmware.pub"
+            }
+            
+            # Define Admin Node Information 
+            k8s-admin-node = {
+              hostname            = "<vsphere_stack>-k8s-admin"
+              num_cpus            = "8"
+              memory              = "16384"
+              disk_size           = "200"
+              mgmt_use_dhcp       = "no"
+              mgmt_interface_name = "ens192"
+              mgmt_subnet         = "<deployment_subnet_cidr>"
+              mgmt_ip             = "<deployment_ip><deployment_subnet_cidr>"
+              mgmt_gateway        = "<deployment_gateway>"
+              mgmt_dns_servers    = "1.1.1.1,1.0.0.1"
+              template            = "ROCKY-9_3-PKR-V1"
+            }  
+            
+            # Define Node Information 
+            k8s-nodes = {
+              hostname                = "<vsphere_stack>-k8s-"
+              number_of_nodes         = "<node_count>"
+              mgmt_m_nodes_total      = "<master_count>"	
+              num_cpus                = "<deployment_cpu>"
+              memory                  = "<deployment_ram>"
+              disk_size               = "200"
+              template                = "ROCKY-9_3-PKR-V1"
+              mgmt_use_dhcp           = "no"
+              mgmt_interface_name     = "ens192"
+              mgmt_subnet             = "<deployment_subnet_cidr>"
+              mgmt_subnet_full        = "<deployment_subnet_full>"
+              mgmt_startip            = "<deployment_start_ip>"
+              mgmt_startip_lastoct    = "<deployment_last_oct>"
+              mgmt_gateway            = "<deployment_gateway>"
+              mgmt_dns_servers        = "1.1.1.1,1.0.0.1"
+              mgmt_node_ips           = "<mgmt_node_ips>"
+            }
+          }
+          
+          output "k8s-output" {
+            value = module.vsphere-k8s
+          }  
+          EOF
+          
+          # Replace the placeholders with the actual input values
+          sed -i "s|<vsphere_datastore>|${{ github.event.inputs.vsphere_datastore }}|g" main.tf
+          sed -i "s|<vsphere_network>|${{ github.event.inputs.vsphere_network }}|g" main.tf
+          
+          IFS=',' read -ra VSPHERE_STACK_INFO <<< "${{ github.event.inputs.vsphere_stack }}"
+          sed -i "s|<vsphere_stack>|${VSPHERE_STACK_INFO[0]}|g" main.tf
+          sed -i "s|<vm_folder>|${VSPHERE_STACK_INFO[1]}|g" main.tf
+          sed -i "s|<deployment_subnet_cidr>|${{ github.event.inputs.deployment_cidr }}|g" main.tf
+          sed -i "s|<deployment_ip>|${{ github.event.inputs.deployment_ip }}|g" main.tf
+          sed -i "s|<deployment_gateway>|${{ github.event.inputs.deployment_gateway }}|g" main.tf
+          sed -i "s|<node_count>|${{ github.event.inputs.number_of_nodes }}|g" main.tf
+
+          number_of_nodes="${{ github.event.inputs.number_of_nodes }}"
+          if (( number_of_nodes <= 10 )); then
+            master_nodes=3
+          elif (( number_of_nodes > 10 )); then
+            master_nodes=5
+          fi
+          
+          sed -i "s|<master_count>|$master_nodes|g" main.tf
+          sed -i "s|<deployment_cpu>|${{ github.event.inputs.deployment_cpu }}|g" main.tf
+          sed -i "s|<deployment_ram>|${{ github.event.inputs.deployment_ram }}|g" main.tf  
+          
+          # Calculate the full subnet address
+          gateway="${{ github.event.inputs.deployment_gateway }}"
+          cidr="${{ github.event.inputs.deployment_cidr }}"
+          IFS='.' read -r -a gateway_octets <<< "$gateway"
+          IFS='/' read -r -a cidr_parts <<< "$cidr"
+          subnet_mask=$(( 0xFFFFFFFF << (32 - ${cidr_parts[1]}) ))
+          subnet_octets=()
+          for i in "${!gateway_octets[@]}"; do
+            subnet_octet=$(( gateway_octets[i] & (subnet_mask >> (8 * (3 - i))) ))
+            subnet_octets+=("$subnet_octet")
+          done
+          subnet_full="${subnet_octets[0]}.${subnet_octets[1]}.${subnet_octets[2]}.${subnet_octets[3]}/${cidr_parts[1]}"
+          sed -i "s|<deployment_subnet_full>|$subnet_full|g" main.tf  
+        
+          # Calculate the starting IP address
+          ip_address="${{ github.event.inputs.deployment_ip }}"
+          incremented_ip=$(printf "%d.%d.%d.%d" $(echo $ip_address | tr '.' ' ' | awk '{print $1+0,$2+0,$3+0,$4+1}'))
+          sed -i "s|<deployment_start_ip>|$incremented_ip|g" main.tf  
+                    
+          # Calculate the last octet of the starting IP address
+          last_octet="${incremented_ip##*.}"  
+          sed -i "s|<deployment_last_oct>|$last_octet|g" main.tf       
+
+          # Calculate node ips
+          nodes="${{ github.event.inputs.number_of_nodes }}"
+          ip_address="${{ github.event.inputs.deployment_ip }}"
+          ip_list=""
+          for ((i = 1; i <= nodes; i++)); do
+            ip_list+="${ip_address%.*}.$((${ip_address##*.} + i)),"
+          done
+          ip_list="${ip_list%,}" # Remove the trailing comma
+          sed -i "s|<mgmt_node_ips>|$ip_list|g" main.tf  
+
+          # Print the generated main.tf
+          cat main.tf
+      
+      # If a new main.tf file was created, commit and push it to the repository
+      - name: Commit and push main.tf
+        if: steps.check-main-tf.outputs.file_exists == 'false'
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "github-actions@users.noreply.github.com"
+          git add main.tf
+          git commit -m "Add generated main.tf"
+          git push 
