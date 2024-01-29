@@ -12,12 +12,6 @@ env:
 on:
   # Trigger the workflow manually from the Actions tab
   workflow_dispatch:
-    # It requires input provided by the user
-    inputs:
-      # These inputs are required state and lock
-      vpc_name:
-        description: 'Enter the VPC name you previously entered'
-        required: true
 
 # Define permissions for this workflow
 permissions:
@@ -64,12 +58,17 @@ jobs:
     # Setup Terraform CLI on the runner
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v2
+
+    # Get VPC Name
+    - name: Get VPC Name
+      run: |
+        echo "vpc_name=$(grep 'name\s*=' ./main.tf | awk -F"=" 'NR==1 {print $2}' | xargs)" >> $GITHUB_ENV         
     
     # Initialise your Terraform working directory 
     - name: Terraform Init S3
       run: |
         terraform init -backend-config="bucket=global-gh-tf-state" \
-                       -backend-config="key=terraform-state-files/${{ github.event.inputs.vpc_name }}-tf-state/terraform.tfstate" \
+                       -backend-config="key=terraform-state-files/${{ env.vpc_name }}-tf-state/terraform.tfstate" \
                        -backend-config="encrypt=true" \
                        -backend-config="kms_key_id=arn:aws:kms:eu-west-2:accountnumberhere:key/key-id-here" \
                        -backend-config="region=eu-west-2" \
@@ -103,5 +102,5 @@ jobs:
     # Upload the main.tf to s3
     - name: S3 Upload
       if: env.apply_failed != 'true'
-      run: aws s3 cp main.tf s3://global-gh-tf-state/terraform-state-files/${{ github.event.inputs.vpc_name }}-tf-state/main.tf
+      run: aws s3 cp main.tf s3://global-gh-tf-state/terraform-state-files/${{ env.vpc_name }}-tf-state/main.tf
 

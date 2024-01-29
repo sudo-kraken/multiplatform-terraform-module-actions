@@ -14,10 +14,6 @@ on:
   workflow_dispatch:
     # It requires several inputs provided by the user
     inputs:
-      # These inputs are required state and lock
-      eks_name:
-        description: 'Enter existing EKS name, the same as previously entered'
-        required: true
 
 # Define permissions for this workflow
 permissions:
@@ -60,6 +56,11 @@ jobs:
         aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
         aws-region: eu-west-2     
+
+    # Get Cluster Name
+    - name: Get Cluster Name
+      run: |
+        echo "cluster_name=$(grep 'name\s*=' ./main.tf | awk -F"=" 'NR==1 {print $2}' | xargs)" >> $GITHUB_ENV         
     
     # Setup Terraform CLI on the runner
     - name: Setup Terraform
@@ -69,7 +70,7 @@ jobs:
     - name: Terraform Init S3    
       run: |
         terraform init -backend-config="bucket=global-gh-tf-state" \
-                       -backend-config="key=terraform-state-files/${{ github.event.inputs.eks_name }}-jumpbox-tf-state/terraform.tfstate" \
+                       -backend-config="key=terraform-state-files/${{ env.cluster_name }}-jumpbox-tf-state/terraform.tfstate" \
                        -backend-config="encrypt=true" \
                        -backend-config="kms_key_id=arn:aws:kms:eu-west-2:accountnumberhere:key/key-id-here" \
                        -backend-config="region=eu-west-2" \
@@ -104,5 +105,9 @@ jobs:
     - name: S3 Upload
       if: env.apply_failed != 'true'
       run:  |
-        aws s3 cp main.tf s3://global-gh-tf-state/terraform-state-files/${{ github.event.inputs.eks_name }}-jumpbox-tf-state/main.tf
-        aws s3 cp ${{ github.workspace }}/modules/aws-eks-cluster/private_key.pem s3://global-gh-tf-state/terraform-state-files/${{ github.event.inputs.eks_name }}-jumpbox-tf-state/private_key.pem || echo "No private_key.pem to upload"
+        aws s3 cp main.tf s3://global-gh-tf-state/terraform-state-files/${{ env.cluster_name }}-jumpbox-tf-state/main.tf
+        if aws s3api head-object --bucket "global-gh-tf-state" --key "terraform-state-files/${{ env.cluster_name }}-jumpbox-tf-state/private_key.pem" 2>/dev/null; then
+          echo "File already exists in S3. Not overwriting."
+        else 
+          aws s3 cp ${{ github.workspace }}/modules/aws-eks-cluster/private_key.pem s3://global-gh-tf-state/terraform-state-files/${{ env.cluster_name }}-jumpbox-tf-state/private_key.pem 
+        fi
