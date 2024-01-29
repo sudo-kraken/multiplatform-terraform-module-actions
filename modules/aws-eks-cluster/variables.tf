@@ -41,7 +41,6 @@ variable "addons" {
   description = "Addons to enable on the EKS cluster."
   type        = list(object({
     name    = string
-    version = string
   }))
   default = []
 }

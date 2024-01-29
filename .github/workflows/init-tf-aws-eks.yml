@@ -112,7 +112,7 @@ jobs:
             source = "./modules/aws-eks-cluster"          
 
             name                 = "<cluster_name>"
-            eks_version          = "1.28"
+            eks_version          = "1.29"
             service_ipv4_cidr    = "<service_cidr>"
             core_dns_ip          = "${DNS_IP}"
             subnet_ids           = ["<vpc_subnet_id_1>", "<vpc_subnet_id_2>", "<vpc_subnet_id_3>"]
@@ -124,19 +124,15 @@ jobs:
             addons = [
               {
                 name    = "kube-proxy"
-                version = "v1.27.4-eksbuild.2"
               },
               {
                 name    = "vpc-cni"
-                version = "v1.15.0-eksbuild.2"
               },
               {
                 name    = "coredns"
-                version = "v1.10.1-eksbuild.4"
               },
               {
                 name    = "aws-ebs-csi-driver"
-                version = "v1.22.0-eksbuild.2"
               }
             ]          
             
