@@ -63,12 +63,6 @@ Once the main.tf file is generated and pushed, you can proceed with using Terraf
 
 ## Execute AWS EKS CICD Workflow
 
-### Workflow Inputs
-
-This workflow expects the following input:
-
-- `eks_cluster`: Enter the EKS cluster name, which should match the name previously entered during the main.tf generation.
-
 ### Workflow Execution
 
 To use this workflow, follow these steps:
