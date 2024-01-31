@@ -109,5 +109,5 @@ jobs:
         if aws s3api head-object --bucket "global-gh-tf-state" --key "terraform-state-files/${{ env.cluster_name }}-jumpbox-tf-state/private_key.pem" 2>/dev/null; then
           echo "File already exists in S3. Not overwriting."
         else 
-          aws s3 cp ${{ github.workspace }}/modules/aws-eks-cluster/private_key.pem s3://global-gh-tf-state/terraform-state-files/${{ env.cluster_name }}-jumpbox-tf-state/private_key.pem 
+          aws s3 cp ${{ github.workspace }}/modules/aws-ec2-jumpbox/private_key.pem s3://global-gh-tf-state/terraform-state-files/${{ env.cluster_name }}-jumpbox-tf-state/private_key.pem 
         fi

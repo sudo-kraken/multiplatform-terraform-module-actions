@@ -58,7 +58,7 @@ resource "aws_security_group" "jumpbox_sg" {
 resource "aws_instance" "jumpbox" {
   ami           = "ami-004128c5853c91821"  # Windows AMI
   instance_type = "t3a.large"
-  key_name      = aws_key_pair.jumpbox_key.key_name
+  key_name      = aws_key_pair.jumpbox_aws_key.key_name
   subnet_id     = var.public_subnet_id  
 
   vpc_security_group_ids = [

@@ -96,8 +96,6 @@ jobs:
           module "new_vpc" {
             source = "./modules/aws-ec2-jumpbox"
           
-            region = "eu-west-2"
-          
             name = "<cluster_name>"
             vpc_id = "<vpc_id>"
             public_subnet_id = "<vpc_public_subnet_id>"
