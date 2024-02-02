@@ -108,7 +108,7 @@ jobs:
           }
 
           output "encrypted_password_data" {
-            value = module.eks_cluster.encrypted_password_data
+            value = module.new_vpc.encrypted_password_data
             sensitive = true
           }
 
