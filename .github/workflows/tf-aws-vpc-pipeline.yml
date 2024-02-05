@@ -61,7 +61,7 @@ jobs:
     steps:
       # Checkout the repository to the GitHub Actions runner 
       - name: Checkout
-        uses: actions/checkout@v3    
+        uses: actions/checkout@v4 
 
       # If main.tf does not exist, we generate a new one using user input
       - name: Check if main.tf exists
@@ -157,13 +157,20 @@ jobs:
     steps:
       # Checkout the repository to the GitHub Actions runner 
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      # Fetch the latest commit  
+      - name: Fetch the latest commit
+        run: |
+          git fetch origin +refs/heads/*:refs/remotes/origin/* --depth=1
+          LATEST_COMMIT=$(git rev-parse origin/${GITHUB_REF##*/})
+          git checkout $LATEST_COMMIT           
         
       # Setup Node.js environment with a specific version
       - name: Node Setup
         uses: actions/setup-node@v3
         with:
-          node-version: '16'      
+          node-version: '20'      
       
       # Set up AWS CLI
       - name: Set up AWS CLI
