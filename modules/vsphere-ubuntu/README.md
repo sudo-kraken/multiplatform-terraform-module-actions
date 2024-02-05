@@ -15,7 +15,7 @@ This Terraform module simplifies the deployment of an Ubuntu 22.04 VM in a vSphe
 
 In detail, the module performs the following tasks:
 
-- Generates SSH key pairs for passwordless authentication.
+- Generates SSH key pairs for password-less authentication.
 - Retrieves essential information about the vSphere environment using data sources.
 - Provisions an Ubuntu 22.04 virtual machine with specified configurations.
 - Configures post-deployment tasks, including waiting for cloud-init to complete, copying SSH keys, and running remote-exec commands.
@@ -24,11 +24,11 @@ This module streamlines the deployment and management of an Ubuntu 22.04 VM in a
 
 ## Usage
 
-### Init vSphere Ubuntu 22.04 CD Workflow
+### vSphere Ubuntu 22.04 CD Workflow
 
 To use this module, follow these steps:
 
-1. Trigger the `Init vSphere Ubuntu 22.04 CD` workflow manually from the "Actions" tab in your GitHub repository.
+1. Trigger the `vSphere Ubuntu 22.04 CD` workflow manually from the "Actions" tab in your GitHub repository.
 
 2. Provide the required inputs when prompted:
 
@@ -47,17 +47,12 @@ To use this module, follow these steps:
 
 4. If a new `main.tf` file is created, it will be automatically committed and pushed to the root of your GitHub repository.
 
-Please note that the `main.tf` file generation will only occur if it does not already exist in the repository.
+>[!IMPORTANT]
+>Please note that the `main.tf` file generation will only occur if it does not already exist in the repository.
 
-Once the `main.tf` file is generated and pushed, you can proceed to use Terraform to apply the configuration for your Center Stage deployment.
+Once the `main.tf` file is generated and pushed, you can proceed to use Terraform to apply the configuration for your Ubuntu 22.04 deployment.
 
-### Execute vSphere Ubuntu 22.04 CD Workflow
-
-To use this workflow, follow these steps:
-
-1. Trigger the `Exec vSphere Ubuntu 22.04 CD` workflow manually from the "Actions" tab in your GitHub repository.
-
-2. The workflow will execute the following steps:
+5. The workflow will execute the following steps:
 
    - **Checkout**: This step checks out the repository to the GitHub Actions runner.
    - **Node Setup**: Sets up a Node.js environment with a specific version.

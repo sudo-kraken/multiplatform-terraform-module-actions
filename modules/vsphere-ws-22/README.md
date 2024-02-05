@@ -22,11 +22,11 @@ This module streamlines the deployment and management of WS22 in a vSphere envir
 
 ## Usage
 
-### Initialise vSphere WS22 Workflow
+### vSphere WS22 CD Workflow
 
 To use this module, follow these steps:
 
-1. Trigger the `Init vSphere WS22 CD` workflow manually from the "Actions" tab in your GitHub repository.
+1. Trigger the `vSphere WS22 CD` workflow manually from the "Actions" tab in your GitHub repository.
 
 2. Provide the required inputs when prompted:
 
@@ -45,15 +45,12 @@ To use this module, follow these steps:
 
 4. If a new `main.tf` file is created, it will be automatically committed and pushed to the root of your GitHub repository.
 
-Please note that the `main.tf` file generation will only occur if it does not already exist in the repository.
+>[!IMPORTANT]
+>Please note that the `main.tf` file generation will only occur if it does not already exist in the repository.
 
-### Execute vSphere WS CD Workflow
+Once the `main.tf` file is generated and pushed, you can proceed to use Terraform to apply the configuration for your Windows Server 2022 deployment.
 
-To use this workflow, follow these steps:
-
-1. Trigger the `Exec vSphere WS 16/19/22 CD` workflow manually from the "Actions" tab in your GitHub repository.
-
-2. The workflow will execute the following steps:
+5. The workflow will execute the following steps:
 
    - **Checkout**: This step checks out the repository to the GitHub Actions runner.
    - **Node Setup**: Sets up a Node.js environment with a specific version.

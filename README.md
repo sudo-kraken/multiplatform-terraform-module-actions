@@ -52,11 +52,14 @@ Before diving into deployment, ensure you have:
 ## Integration with my Packer Repository (vSphere Modules Only)
 My Terraform vSphere-based modules are designed to use VM templates created by my Packer repository. Make sure you have the latest templates from the Packer repo, as they're essential for the VM deployment process.
 
-## Generating main.tf File
-Initiate one of the `Init` actions in this repository to generate a custom `main.tf` file at the root of the repository. This file is pivotal for your deployment configuration.
+## Executing the IAC Actions
+The actions within this repo will generate a custom main.tf files to call the individual modules contained here, be sure to follow each of the modules instructions.
 
-## Deployment
-After setting up your main.tf via one of the `init` actions:
-  - Execute the corresponding `Exec` action. This triggers the deployment process using the configuration specified in `main.tf`.
-  - Monitor the deployment progress via the Actions tab in the GitHub repository.
-  - Upon completion, access and manage your new VM or resource.
+All of the acitons perform the following functions:
+
+1. Generates a main.tf file: This file contains the Terraform configuration code that specifies the desired infrastructure resources, such as virtual machines, networks, and storage.
+
+2. Executes the main.tf file: The code uses the Terraform CLI (Command-Line Interface) to apply the configuration defined in the main.tf file. This triggers the provisioning of the infrastructure resources specified in the configuration.
+
+>[!Note]
+>Make sure to provide the necessary input variables and authentication credentials, such as access keys or service account credentials, for the Terraform execution to succeed.
