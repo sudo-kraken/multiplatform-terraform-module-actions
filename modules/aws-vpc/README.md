@@ -7,12 +7,12 @@ This Terraform module automates the provisioning of an Amazon Web Services (AWS)
 ## Prerequisites
 - GitHub Secrets have been set for the following values
    - `AWS_ACCESS_KEY` the AWS account Access Key you will use to setup the AWS Cli on the GitHub Runner
-   - `AWS_SECRET_KEY` the AWS account Secret Key you will use to setup the AWS Cli on the GitHub Rcreated
-- Your AWS Account must have all the necessary IAM role permissions to be able to use AWS S3, VPC's, KMS, DynamoDB etc, please refer to the AWS IAM Example Role in the repo
-- An S3 bucket created named `global-gh-tf-state` to store your terraform statefiles and the main.tf file used in this deployment
-- A KMS key used to encrypt the files within the terraform bucket, you will need to edit the `.github/workflows/exec-aws-vpc-deployment.yml` file on line **74** to replace the key arn with your own here
-- OPTIONALLY - Edit the regions in `.github/workflows/init-tf-aws-vpc.yml` and  `.github/workflows/exec-aws-vpc-deployment.yml`
-    - Lines **93**, **99**, **106** in the init file and lines **62**, **75** in the exec file
+   - `AWS_SECRET_KEY` the AWS account Secret Key you will use to setup the AWS Cli on the GitHub Runner
+- Your AWS Account must have all the necessary IAM role permissions to be able to use AWS S3, VPC's, KMS, etc, please refer to the AWS IAM example policy in the repo
+- An S3 bucket created named `global-gh-tf-state` to store your terraform state files and the main.tf file used in this deployment
+- A KMS key used to encrypt the files within the terraform bucket, you will need to edit the `.github/workflows/aws-vpc-pipeline.yml` file on line **191** to replace the key arn with your own here
+- OPTIONALLY - Edit the regions in `.github/workflows/aws-vpc-pipeline.yml`
+    - Lines **100**, **106**, **113**, **174**, and **192** in the file, it is currently set to `eu-west-2`
 
 ## Module Details
 
@@ -36,10 +36,10 @@ This module simplifies the creation of AWS VPCs while allowing users to tailor n
 
 ## Usage
 
-## Init AWS VPC CD Workflow
+## AWS VPC CD Workflow
 To use this module, follow these steps:
 
-1. Trigger the `Init AWS VPC CD` workflow manually from the "Actions" tab in the GitHub repository.
+1. Trigger the `AWS VPC CD` workflow manually from the "Actions" tab in the GitHub repository.
 
 2. Provide the following inputs when prompted:
 
@@ -57,17 +57,9 @@ To use this module, follow these steps:
 
 Note: The workflow will only generate a `main.tf` file if it does not already exist in the repository.
 
-Once the `main.tf` file is generated and pushed, you can proceed with using Terraform to apply the configuration for your AWS VPC.
+Once the `main.tf` file is generated and pushed, it will then proceed with using Terraform to apply the configuration for your AWS VPC.
 
-## Execute AWS VPC CD Workflow
-
-### Workflow Execution
-
-To use this workflow, follow these steps:
-
-1. Trigger the `Exec AWS VPC CD` workflow manually from the "Actions" tab in the GitHub repository.
-
-2. The workflow will execute the following steps:
+5. The workflow will execute the following steps:
 
    - **Checkout** : This step checks out the repository to the GitHub Actions runner.
    - **Node Setup** : Sets up a Node.js environment with a specific version.
