@@ -1,10 +1,22 @@
+# Author:  Joe Harrison
+# This is a GitHub Actions workflow that uses Terraform to deploy an AWS VPC. 
+# It will generate a main.tf file based on user input, in the root of the repository and then apply the Terraform configuration to create the VPC. 
+# If the Terraform apply fails, it will initiate a cleanup by destroying the resources created. The main.tf file and terraform state is then uploaded to an S3 bucket for future reference.
+
 # Name of the workflow
-name: Init AWS VPC CD
+name: AWS VPC CD
+
+# Define environment variables
+env:
+  # AWS Access Key
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+  # AWS Secret Key
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+
 # Define the events that trigger the workflow
 on:
   # Trigger the workflow manually from the Actions tab
   workflow_dispatch:
-    # It requires several inputs provided by the user
     inputs:
       # These inputs are details for the vSphere environment, deployment parameters, and vSphere object information
       vpc_name:
@@ -13,7 +25,7 @@ on:
       is_eks_enabled:
         description: 'Is this VPC going to be used to run EKS'
         required: true
-        default: false
+        default: 'false'
         type: choice
         options:
         - 'true'
@@ -36,40 +48,35 @@ on:
 
 # Define permissions for this workflow
 permissions:
-  # Only read access to the contents is needed
   contents: read
 
 # Define jobs in this workflow  
 jobs:
-  # Define a job for Terraform actions
+  # Define a job for main.tf file actions
   generate-main-tf:
-    # Name of the job  
-    name: 'Terraform AWS VPC main.tf Generation'
-    # Define the type of runner that the job will run on
+    name: 'Terraform VPC main.tf Generation'
     runs-on: [self-hosted, devops]
-    # Define the environment in which the job will run
     environment: production
 
-    # Define steps for this job
     steps:
       # Checkout the repository to the GitHub Actions runner 
       - name: Checkout
         uses: actions/checkout@v3    
-            
+
       # If main.tf does not exist, we generate a new one using user input
       - name: Check if main.tf exists
         run: |
           if [ -f "main.tf" ]; then
             echo "main.tf already exists, skipping file generation."
-            echo "file_exists=true" >> $GITHUB_OUTPUT
+            echo "file_exists=true" >> $GITHUB_ENV      
           else
             echo "main.tf does not exist, continuing with file generation."
-            echo "file_exists=false" >> $GITHUB_OUTPUT
+            echo "file_exists=false" >> $GITHUB_ENV
           fi
         id: check-main-tf
       
       - name: Generate main.tf with user input
-        if: steps.check-main-tf.outputs.file_exists == 'false'
+        if: env.file_exists == 'false'
         run: |
           cat > main.tf << EOF
           # Define the required version of Terraform and the required AWS provider version
@@ -132,10 +139,85 @@ jobs:
 
       # If a new main.tf file was created, commit and push it to the repository
       - name: Commit and push main.tf
-        if: steps.check-main-tf.outputs.file_exists == 'false'
+        if: env.file_exists == 'false'
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "github-actions@users.noreply.github.com"
           git add main.tf
           git commit -m "Add generated main.tf"
           git push
+
+  # Define a job for Terraform actions          
+  terraform-aws-vpc-pipeline:
+    name: 'Terraform AWS VPC Pipeline'
+    needs: generate-main-tf
+    runs-on: [self-hosted, devops]
+    environment: production
+
+    steps:
+      # Checkout the repository to the GitHub Actions runner 
+      - name: Checkout
+        uses: actions/checkout@v3
+        
+      # Setup Node.js environment with a specific version
+      - name: Node Setup
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'      
+      
+      # Set up AWS CLI
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2     
+      
+      # Setup Terraform CLI on the runner
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      # Get VPC Name
+      - name: Get VPC Name
+        run: |
+          echo "vpc_name=$(grep 'name\s*=' ./main.tf | awk -F"=" 'NR==1 {print $2}' | xargs)" >> $GITHUB_ENV           
+      
+      # Initialise your Terraform working directory 
+      - name: Terraform Init S3    
+        run: |
+          terraform init -backend-config="bucket=global-gh-tf-state" \
+                         -backend-config="key=terraform-state-files/${{ env.vpc_name }}-tf-state/terraform.tfstate" \
+                         -backend-config="encrypt=true" \
+                         -backend-config="kms_key_id=arn:aws:kms:eu-west-2:accountnumberhere:key/key-id-here" \
+                         -backend-config="region=eu-west-2" \
+                         -backend-config="access_key=${{ env.AWS_ACCESS_KEY_ID }}" \
+                         -backend-config="secret_key=${{ env.AWS_SECRET_ACCESS_KEY }}"
+
+      # Generate an execution plan for Terraform
+      - name: Terraform Plan
+        run: terraform plan
+      
+        # Apply the changes required to reach the desired state of the configuration
+      - name: Terraform Apply
+        id: apply    
+        continue-on-error: true
+        run: terraform apply -auto-approve
+
+      # Check if Terraform Apply failed and set an output variable
+      - name: Check Terraform Apply Outcome
+        id: check
+        run: echo "apply_failed=${{ steps.apply.outcome == 'failure' }}" >> $GITHUB_ENV      
+        
+      # Destroy if Terraform Apply failed
+      - name: Terraform Destroy
+        if: env.apply_failed == 'true'
+        id: failure-handler
+        run: |
+          echo "Terraform Apply failed. Initiating cleanup..."
+          terraform destroy -auto-approve
+          echo "cleanup_done=true" >> $GITHUB_ENV     
+
+      # Upload the main.tf to S3
+      - name: S3 Upload
+        if: env.apply_failed != 'true'
+        run:  aws s3 cp main.tf s3://global-gh-tf-state/terraform-state-files/${{ env.vpc_name }}-tf-state/main.tf    

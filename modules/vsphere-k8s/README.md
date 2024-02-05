@@ -24,10 +24,10 @@ This module streamlines the setup and management of your Kubernetes cluster on V
 
 ## Usage
 
-### Init vSphere K8S Workflow
+### vSphere K8S CD Workflow
 To use this module, follow these steps:
 
-1. Trigger the `Init vSphere K8S CD` workflow manually from the "Actions" tab in the GitHub repository.
+1. Trigger the `vSphere K8S CD` workflow manually from the "Actions" tab in the GitHub repository.
 
 2. Provide the following inputs when prompted:
 
@@ -46,19 +46,12 @@ To use this module, follow these steps:
 
 5. If new Terraform configuration files were created, they will be automatically committed and pushed to the GitHub repository root.
 
-Note: The workflow will only generate configuration files if they do not already exist in the repository.
+> [!IMPORTANT]  
+> The workflow will only generate configuration files if they do not already exist in the repository.
 
-Once the configuration files are generated and pushed, you can proceed with using Terraform to apply the configuration for your Kubernetes cluster on VMware.
+Once the configuration files are generated and pushed, it will then proceed with using Terraform to apply the configuration for your Kubernetes cluster on VMware.
 
-### Execute Kubernetes Cluster CD Workflow
-
-#### Workflow Execution
-
-To use this workflow, follow these steps:
-
-1. Trigger the `Exec vSphere K8S CD` workflow manually from the "Actions" tab in the GitHub repository.
-
-2. The workflow will execute the following steps:
+6. The workflow will execute the following steps:
 
    - **Checkout**: This step checks out the repository to the GitHub Actions runner.
    - **Node Setup**: Sets up a Node.js environment with a specific version.
