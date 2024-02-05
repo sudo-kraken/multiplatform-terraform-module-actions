@@ -1,15 +1,23 @@
-# This is a GitHub Action workflow definition
-# The workflow generates a main.tf Terraform configuration file for a vSphere environment
+# Author:  Joe Harrison
+# This is a GitHub Actions workflow that uses Terraform to deploy a vSphere Windows Server 2019 VM. 
+# It will generate a main.tf file based on user input, in the root of the repository and then apply the Terraform configuration to create the VM. 
+# If the Terraform apply fails, it will initiate a cleanup by destroying the resources created.
 
-# The name of the workflow is 'Generate vSphere WS16 main.tf'
-name: 'Init vSphere WS16 CD'
+# Name of the workflow
+name: 'vSphere WS19 CD'
 
-# This workflow is manually triggered and requires user input
+# Define environment variables
+env:
+  # vSphere password used for authentication
+  TF_VAR_vsphere_password: ${{ secrets.VSPHERE_PASSWORD }}
+  # SSH password used for authentication
+  TF_VAR_ssh_password: ${{ secrets.SSH_PASSWORD }}  
+
+# Define the events that trigger the workflow
 on:
+  # Trigger the workflow manually from the Actions tab
   workflow_dispatch:
     inputs:
-      # Various inputs for vSphere environment details, deployment parameters, and vSphere object information
-      # Descriptions for each input are provided for the user
       hostname:
         description: 'Enter desired hostname, vCenter IP, vCenter User, separated by commas i.e. "windows-box-01,192.168.1.150,admin@domain.local"'
         required: true
@@ -20,7 +28,7 @@ on:
         description: 'Enter the path of the existing folder to deploy to i.e. "Path/To/VM"'
         required: true
       vsphere_datastore:
-        description: 'Enter the vSphere datacenter and datastore to deploy to, separated by commas i.e. "DATACENTER1,DATASTORE_NAME"'
+        description: 'Enter the vSphere cluster and datastore to deploy to, separated by commas i.e. "DATACENTER1,DATASTORE_NAME"'
         required: true
       vsphere_network:
         description: 'Enter the vSphere port group connect the VM to'
@@ -35,51 +43,43 @@ on:
         description: 'Enter the number of CPUs and the amount of RAM (MB) to allocate to the vm, separated by a comma i.e. "4,8192"'
         required: true
       AD_Details:
-        description: 'Enter ADJoin, ADPass, ADOU, ADUser, and ADDomain, separated by commas i.e. "true,password,username,domain.local". Leave empty if no domain join is required.'
+        description: 'Enter ADJoin, ADPass, ADOU, ADUser, and ADDomain, separated by commas i.e. "true,pass,user,domain.local". Leave empty if no domain join is required.'
         required: false
       vm_disks:
         description: 'Enter the size of each additional disk to add in GB, separated by commas. For example: "100,200". Leave empty if no additional disks are needed.'
         required: false
 
-# The permissions for this workflow are defined
-# The workflow only needs read access to the contents of the repository
+# Define permissions for this workflow
 permissions:
   contents: read
 
-# The jobs for the workflow are defined
+# Define jobs in this workflow  
 jobs:
+  # Define a job for main.tf file actions
   generate-main-tf:
-    # This job is for generating the main.tf file with Terraform actions
-    name: 'Terraform WS16 main.tf Generation'
-    
-    # The job is run on a self-hosted runner with a 'devops' label
+    name: 'Terraform vSphere Windows Server 2019 main.tf Generation'
     runs-on: [self-hosted, devops]
-    
-    # The environment for the job is 'production'
     environment: production
 
-    # The steps for the job are defined
     steps:
-      # The repository is checked out to the GitHub Actions runner
+      # Checkout the repository to the GitHub Actions runner 
       - name: Checkout
-        uses: actions/checkout@v3    
-        
-      # This step checks if main.tf already exists in the repo
+        uses: actions/checkout@v3  
+
+      # If main.tf does not exist, we generate a new one using user input
       - name: Check if main.tf exists
         run: |
-          # It sets an environment variable 'file_exists' to 'true' or 'false' based on whether main.tf exists
           if [ -f "main.tf" ]; then
             echo "main.tf already exists, skipping file generation."
-            echo "file_exists=true" >> $GITHUB_ENV
+            echo "file_exists=true" >> $GITHUB_ENV      
           else
             echo "main.tf does not exist, continuing with file generation."
             echo "file_exists=false" >> $GITHUB_ENV
           fi
         id: check-main-tf
       
-      # If main.tf does not exist, this step generates a new one using user input
       - name: Generate main.tf with user input
-        if: ${{ env.file_exists }} == 'false'
+        if: env.file_exists == 'false'
         run: |
           # It parses various input parameters and generates the main.tf file using them
           # If any optional parameters are not provided, it handles them gracefully
@@ -163,8 +163,8 @@ jobs:
           }
           
           # Define the module source and its location
-          module "vsphere-ws16" {
-            source = "./modules/vsphere-ws-16"
+          module "vsphere-ws19" {
+            source = "./modules/vsphere-ws-19"
           
             # Define vSphere Information 
             vsphere_config = {
@@ -178,7 +178,7 @@ jobs:
             }
                       
             // Define Host Information 
-            ws16 = {
+            ws19 = {
                // VM Hostname
                hostname            = "$hostname"
                vm_password         = var.vm_password
@@ -189,7 +189,7 @@ jobs:
                disk_size           = "150"
                vm_disks            = [ ${disks_str} ]
                vm_timezone         = "085"
-               template            = "WS16-PKR-V1"           
+               template            = "WS19-PKR-V1"           
                
                // Network Details
                vm_ip          = "$vm_ip"
@@ -219,3 +219,53 @@ jobs:
           git add main.tf
           git commit -m "Add generated main.tf"
           git push
+
+  # Define a job for Terraform actions          
+  terraform-vsphere-windows-server-2019-pipeline:
+    name: 'Terraform vSphere Windows Server 2019 Pipeline'
+    needs: generate-main-tf
+    runs-on: [self-hosted, devops]
+    environment: production
+
+    steps:   
+    # Checkout the repository to the GitHub Actions runner 
+    - name: Checkout
+      uses: actions/checkout@v3
+                
+    # Setup Node.js environment with a specific version
+    - name: Node Setup
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+    
+    # Setup Terraform CLI on the runner
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+    
+    # Initialise your Terraform working directory
+    - name: Terraform Init
+      run: terraform init
+
+    # Generate an execution plan for Terraform
+    - name: Terraform Plan
+      run: terraform plan
+    
+    # Apply the changes required to reach the desired state of the configuration
+    - name: Terraform Apply
+      id: apply    
+      continue-on-error: true
+      run: terraform apply -auto-approve
+
+    # Check if Terraform Apply failed and set an output variable
+    - name: Check Terraform Apply Outcome
+      id: check
+      run: echo "apply_failed=${{ steps.apply.outcome == 'failure' }}" >> $GITHUB_ENV
+
+    # Destroy if Terraform Apply failed
+    - name: Terraform Apply Failure Handler
+      if: env.apply_failed == 'true'
+      id: failure-handler
+      run: |
+        echo "Terraform Apply failed. Initiating cleanup..."
+        terraform destroy -auto-approve
+        echo "cleanup_done=true" >> $GITHUB_ENV            

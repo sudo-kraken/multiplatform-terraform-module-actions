@@ -1,11 +1,22 @@
+# Author:  Joe Harrison
+# This is a GitHub Actions workflow that uses Terraform to deploy a vSphere K8S cluster using Rocky Linux VMs. 
+# It will generate a main.tf file based on user input, in the root of the repository and then apply the Terraform configuration to create the cluster. 
+# If the Terraform apply fails, it will initiate a cleanup by destroying the resources created.
+
 # Name of the workflow
-name: 'Init vSphere K8S CD'
+name: 'vSphere K8S CD'
+# Define environment variables
+env:
+  # vSphere password used for authentication
+  TF_VAR_vsphere_password: ${{ secrets.VSPHERE_PASSWORD }}
+  # SSH password used for authentication
+  TF_VAR_ssh_password: ${{ secrets.SSH_PASSWORD }}  
+
+# Define the events that trigger the workflow
 on:
-  # This workflow is triggered manually
+  # Trigger the workflow manually from the Actions tab
   workflow_dispatch:
-    # It requires several inputs provided by the user
     inputs:
-      # These inputs are details for the vSphere environment, deployment parameters, and vSphere object information
       vsphere_server:
         description: 'Enter the vSphere Server IP, User, Datacenter, Cluster to deploy the K8S on, separated by commas, i.e. "192.168.1.100,user@domain.local,DATACENTER1,CLUSTER4"'
         required: true
@@ -51,41 +62,35 @@ on:
 
 # Define permissions for this workflow
 permissions:
-  # Only read access to the contents is needed
   contents: read
 
 # Define jobs in this workflow  
 jobs:
-  # Define a job for Terraform actions
+  # Define a job for main.tf file actions
   generate-main-tf:
-    # Name of the job  
-    name: 'Terraform K8s main.tf Generation'
-    # Define the type of runner that the job will run on
+    name: 'Terraform vSphere K8S main.tf Generation'
     runs-on: [self-hosted, devops]
-    # Define the environment in which the job will run
     environment: production
-    
-    # Define steps for this job
+
     steps:
       # Checkout the repository to the GitHub Actions runner 
       - name: Checkout
-        uses: actions/checkout@v3    
+        uses: actions/checkout@v3  
 
-      # Then we check if main.tf already exists in the repo          
+      # If main.tf does not exist, we generate a new one using user input
       - name: Check if main.tf exists
         run: |
           if [ -f "main.tf" ]; then
             echo "main.tf already exists, skipping file generation."
-            echo "file_exists=true" >> $GITHUB_OUTPUT
+            echo "file_exists=true" >> $GITHUB_ENV      
           else
             echo "main.tf does not exist, continuing with file generation."
-            echo "file_exists=false" >> $GITHUB_OUTPUT
+            echo "file_exists=false" >> $GITHUB_ENV
           fi
         id: check-main-tf
       
-      # If main.tf does not exist, we generate a new one using user input
       - name: Generate main.tf with user input
-        if: steps.check-main-tf.outputs.file_exists == 'false'
+        if: env.file_exists == 'false'
         run: |
           # Using the Internal Field Separator (IFS) variable, parse the input strings into individual variables
           IFS=',' read -r vsphere_server vsphere_user vsphere_datacenter vsphere_cluster <<< "${{ github.event.inputs.vsphere_server }}"
@@ -251,3 +256,85 @@ jobs:
           git add main.tf
           git commit -m "Add generated main.tf"
           git push 
+
+  # Define a job for Terraform actions          
+  terraform-vsphere-k8s-pipeline:
+    name: 'Terraform K8S Pipeline'
+    needs: generate-main-tf
+    runs-on: [self-hosted, devops]
+    environment: production
+
+    steps:   
+    # Checkout the repository to the GitHub Actions runner 
+    - name: Checkout
+      uses: actions/checkout@v3
+                
+    # Setup Node.js environment with a specific version
+    - name: Node Setup
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+    
+    # Setup Terraform CLI on the runner
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+    
+    # Initialise your Terraform working directory
+    - name: Terraform Init
+      run: terraform init
+
+    # Generate an execution plan for Terraform
+    - name: Terraform Plan
+      run: terraform plan
+    
+    # Apply the changes required to reach the desired state of the configuration
+    - name: Terraform Apply
+      id: apply    
+      continue-on-error: true
+      run: terraform apply -auto-approve
+
+    # Check if Terraform Apply failed and set an output variable
+    - name: Check Terraform Apply Outcome
+      id: check
+      run: echo "apply_failed=${{ steps.apply.outcome == 'failure' }}" >> $GITHUB_ENV
+
+    # Destroy if Terraform Apply failed
+    - name: Terraform Apply Failure Handler
+      if: env.apply_failed == 'true'
+      id: failure-handler
+      run: |
+        echo "Terraform Apply failed. Initiating cleanup..."
+        terraform destroy -auto-approve
+        echo "cleanup_done=true" >> $GITHUB_ENV          
+
+    # If SSH keys exist in the root of the repo
+    - name: Check SSH Key Existance
+      run: |
+        if [ -f "id_rsa-k8s-on-vmware" ]; then
+          echo "keys already exists, skipping commit."
+          echo "keys_exist=true" >> $GITHUB_ENV
+        else
+          echo "keys do not exist, continuing with commit."
+          echo "keys_exist=false" >> $GITHUB_ENV
+        fi
+      id: check-keys
+      
+    # If a new SSH key files were created, commit and push it to the repository
+    - name: Commit and Push SSH Keys
+      if: env.keys_exist == 'true' && env.steps.cleanup_done != 'true'
+      run: |
+        # Set Git configurations
+        git config --global user.name "GitHub Actions" || true
+        git config --global user.email "github-actions@users.noreply.github.com" || true
+
+        # Add SSH key files
+        git add id_rsa-k8s-on-vmware id_rsa-k8s-on-vmware.pub
+
+        # Check if there are changes to commit
+        if git diff-index --quiet HEAD --; then
+          echo "No changes to commit. Skipping commit and push."
+        else
+          # Commit and push changes
+          git commit -m "commit deployment SSH keys"
+          git push --force
+        fi        
