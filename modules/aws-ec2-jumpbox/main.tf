@@ -9,7 +9,7 @@ resource "tls_private_key" "jumpbox_key" {
 
 # Import the generated public key into AWS
 resource "aws_key_pair" "jumpbox_aws_key" {
-  key_name   = "${var.name}-jumpbox-key"
+  key_name   = "${var.name}-${var.subnet_type}-jumpbox-key"
   public_key = tls_private_key.jumpbox_key.public_key_openssh
 }
 
@@ -25,7 +25,7 @@ resource "local_file" "private_key" {
 
 # Security Group for the EC2 jump box
 resource "aws_security_group" "jumpbox_sg" {
-  name        = "${var.name}-jumpbox-sg"
+  name        = "${var.name}-${var.subnet_type}-jumpbox-sg"
   description = "Security Group for RDP access to the jump box"
   vpc_id      = var.vpc_id
 
@@ -46,11 +46,12 @@ resource "aws_security_group" "jumpbox_sg" {
   }
 
   tags = {
-    Name          = "${var.name}-jumpbox-sg"
+    Name          = "${var.name}-${var.subnet_type}-jumpbox-sg"
     managed-by    = "terraform"
     client        = var.client_tag
     product       = var.product_tag
     environment   = var.environment_tag
+    map-migrated  = "migG2M3HRRJ11"
   }
 }
 
@@ -59,9 +60,9 @@ resource "aws_instance" "jumpbox" {
   ami           = "ami-004128c5853c91821"  # Windows AMI
   instance_type = "t3a.large"
   key_name      = aws_key_pair.jumpbox_aws_key.key_name
-  subnet_id     = var.public_subnet_id  
+  subnet_id     = var.subnet_id  
   
-  associate_public_ip_address = true
+  associate_public_ip_address = var.subnet_type == "public" ? true : false
 
   vpc_security_group_ids = [
     aws_security_group.jumpbox_sg.id
@@ -88,7 +89,7 @@ resource "aws_instance" "jumpbox" {
               EOF
 
   tags = {
-    Name          = "${var.name}-jumpbox"
+    Name          = "${var.name}-${var.subnet_type}-jumpbox"
     managed-by    = "terraform"
     client        = var.client_tag
     product       = var.product_tag

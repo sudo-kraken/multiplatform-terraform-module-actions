@@ -25,9 +25,17 @@ on:
       vpc_id:
         description: 'Enter the VPC id i.e. vpc-00000000000000001'
         required: true        
-      vpc_public_subnet_id:
-        description: 'Enter the public subnet id to deploy the jumpbox in i.e. "subnet-00000000000000001"'
+      vpc_subnet_id:
+        description: 'Enter the subnet id to deploy the jumpbox in i.e. "subnet-00000000000000001"'
         required: true          
+      subnet_type:
+        description: 'Is the subnet public or private'
+        required: true
+        type: choice
+        default: 'private'        
+        options:
+        - 'private'
+        - 'public'           
       client_tag:
         description: 'Enter the value to be used in the client tag (all lowercase) i.e. "client1" or "shared"'
         required: true    
@@ -97,7 +105,8 @@ jobs:
           
             name = "<cluster_name>"
             vpc_id = "<vpc_id>"
-            public_subnet_id = "<vpc_public_subnet_id>"
+            subnet_id = "<vpc_subnet_id>"
+            subnet_type = "<subnet_type>"
             client_tag = "<client_tag>"
             product_tag = "<product_tag>"
             environment_tag = "<environment_tag>"
@@ -116,7 +125,8 @@ jobs:
           # Replace the placeholders with the actual input values
           sed -i "s|<cluster_name>|${{ github.event.inputs.cluster_name }}|g" main.tf
           sed -i "s|<vpc_id>|${{ github.event.inputs.vpc_id }}|g" main.tf
-          sed -i "s|<vpc_public_subnet_id>|${{ github.event.inputs.vpc_public_subnet_id }}|g" main.tf
+          sed -i "s|<vpc_subnet_id>|${{ github.event.inputs.vpc_subnet_id }}|g" main.tf
+          sed -i "s|<subnet_type>|${{ github.event.inputs.subnet_type }}|g" main.tf
           sed -i "s|<client_tag>|${{ github.event.inputs.client_tag }}|g" main.tf
           sed -i "s|<product_tag>|${{ github.event.inputs.product_tag }}|g" main.tf
           sed -i "s|<environment_tag>|${{ github.event.inputs.environment_tag }}|g" main.tf
@@ -172,7 +182,12 @@ jobs:
     # Get Cluster Name
     - name: Get Cluster Name
       run: |
-        echo "cluster_name=$(grep 'name\s*=' ./main.tf | awk -F"=" 'NR==1 {print $2}' | xargs)" >> $GITHUB_ENV         
+        echo "cluster_name=$(grep 'name\s*=' ./main.tf | awk -F"=" 'NR==1 {print $2}' | xargs)" >> $GITHUB_ENV     
+
+    # Get Subnet Type
+    - name: Get Subnet Type
+      run: |
+        echo "subnet_type=$(grep 'type\s*=' ./main.tf | awk -F"=" 'NR==1 {print $2}' | xargs)" >> $GITHUB_ENV        
     
     # Setup Terraform CLI on the runner
     - name: Setup Terraform
@@ -182,7 +197,7 @@ jobs:
     - name: Terraform Init S3    
       run: |
         terraform init -backend-config="bucket=global-gh-tf-state" \
-                       -backend-config="key=terraform-state-files/${{ env.cluster_name }}-jumpbox-tf-state/terraform.tfstate" \
+                       -backend-config="key=terraform-state-files/${{ env.cluster_name }}-${{ env.subnet_type }}-jumpbox-tf-state/terraform.tfstate" \
                        -backend-config="encrypt=true" \
                        -backend-config="kms_key_id=arn:aws:kms:eu-west-2:accountnumberhere:key/key-id-here" \
                        -backend-config="region=eu-west-2" \
@@ -217,9 +232,9 @@ jobs:
     - name: S3 Upload
       if: env.apply_failed != 'true'
       run:  |
-        aws s3 cp main.tf s3://global-gh-tf-state/terraform-state-files/${{ env.cluster_name }}-jumpbox-tf-state/main.tf
-        if aws s3api head-object --bucket "global-gh-tf-state" --key "terraform-state-files/${{ env.cluster_name }}-jumpbox-tf-state/private_key.pem" 2>/dev/null; then
+        aws s3 cp main.tf s3://global-gh-tf-state/terraform-state-files/${{ env.cluster_name }}-${{ env.subnet_type }}-jumpbox-tf-state/main.tf
+        if aws s3api head-object --bucket "global-gh-tf-state" --key "terraform-state-files/${{ env.cluster_name }}-${{ env.subnet_type }}-jumpbox-tf-state/private_key.pem" 2>/dev/null; then
           echo "File already exists in S3. Not overwriting."
         else 
-          aws s3 cp ${{ github.workspace }}/modules/aws-ec2-jumpbox/private_key.pem s3://global-gh-tf-state/terraform-state-files/${{ env.cluster_name }}-jumpbox-tf-state/private_key.pem 
+          aws s3 cp ${{ github.workspace }}/modules/aws-ec2-jumpbox/private_key.pem s3://global-gh-tf-state/terraform-state-files/${{ env.cluster_name }}-${{ env.subnet_type }}-jumpbox-tf-state/private_key.pem 
         fi

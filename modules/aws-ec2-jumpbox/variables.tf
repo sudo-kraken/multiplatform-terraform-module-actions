@@ -8,8 +8,13 @@ variable "vpc_id" {
   type        = string
 }
 
-variable "public_subnet_id" {
-  description = "Public Subnet ID where the EC2 instance will be launched"
+variable "subnet_id" {
+  description = "Subnet ID where the EC2 instance will be launched"
+  type        = string
+}
+
+variable "subnet_type" {
+  description = "Subnet type the EC2 instance will be launched in"
   type        = string
 }
 
