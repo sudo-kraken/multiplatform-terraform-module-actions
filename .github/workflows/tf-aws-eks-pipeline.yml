@@ -132,6 +132,10 @@ jobs:
               {
                 name    = "aws-ebs-csi-driver"
               }
+              ,
+              {
+                name    = "aws-efs-csi-driver"
+              }              
             ]          
             
             # Configuration for the first node pool
