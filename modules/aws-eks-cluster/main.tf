@@ -1,6 +1,13 @@
 # Fetch the current AWS account details
 data "aws_caller_identity" "current" {}
 
+# Fetch the vpc private subnet details
+data "aws_subnet" "private" {
+  count = length(var.subnet_ids)
+
+  id = var.subnet_ids[count.index]
+}
+
 # Create a KMS key for EKS cluster secrets
 resource "aws_kms_key" "eks" {
   description = "KMS key for EKS ${var.name}"
@@ -173,8 +180,9 @@ resource "aws_iam_role_policy_attachment" "eks_cluster_attach_policy_to_worker_r
   for_each = {
     "AmazonEKSWorkerNodePolicy"          = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
     "AmazonEC2ContainerRegistryReadOnly" = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
-    "AmazonEKS_CNI_Policy"               = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
-    #"AmazonEBSCSIDriverPolicy"           = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+    "AmazonEKS_CNI_Policy"               = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
+    "AmazonEBSCSIDriverPolicy"           = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy",
+    "AmazonEFSCSIDriverPolicy"           = "arn:aws:iam::aws:policy/service-role/AmazonEFSCSIDriverPolicy"
   }
 
   role       = aws_iam_role.eks_cluster_worker_role.name
@@ -243,20 +251,6 @@ resource "aws_security_group" "eks_worker_nodes_sg" {
   name   = "${var.name}-worker-nodes-sg"
   vpc_id = var.vpc_id
 
-  ingress {
-    from_port   = 1025
-    to_port     = 65535
-    protocol    = "tcp"
-    security_groups = [aws_security_group.eks_cluster_sg.id] # assuming this is your EKS control plane SG
-  }
-
-  ingress {
-    from_port   = 0
-    to_port     = 65535
-    protocol    = "tcp"
-    self        = true
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -270,6 +264,24 @@ resource "aws_security_group" "eks_worker_nodes_sg" {
     client        = var.client_tag
     environment   = var.environment_tag
   }
+}
+
+resource "aws_security_group_rule" "eks_worker_nodes_sg_ingress_self" {
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1" 
+  security_group_id = aws_security_group.eks_worker_nodes_sg.id
+  self              = true
+}
+
+resource "aws_security_group_rule" "eks_workers_ingress_private_subnets" {
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  security_group_id = aws_security_group.eks_worker_nodes_sg.id
+  cidr_blocks       = [for subnet in data.aws_subnet.private : subnet.cidr_block]
 }
 
 # A resource to generate a random number, used for creating unique resource names.

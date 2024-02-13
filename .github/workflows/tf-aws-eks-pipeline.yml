@@ -131,8 +131,7 @@ jobs:
               },
               {
                 name    = "aws-ebs-csi-driver"
-              }
-              ,
+              },
               {
                 name    = "aws-efs-csi-driver"
               }              

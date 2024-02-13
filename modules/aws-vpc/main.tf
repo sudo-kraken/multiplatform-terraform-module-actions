@@ -152,39 +152,12 @@ resource "aws_default_network_acl" "default" {
 
   # Inbound Rules
   ingress {
-    protocol   = 6  # TCP
+    protocol   = -1  # All protocols
     rule_no    = 100
     action     = "allow"
     cidr_block = "0.0.0.0/0"
-    from_port  = 1024
-    to_port    = 65535  # Ephemeral Ports
-  }
-
-  ingress {
-    protocol   = 6  # TCP
-    rule_no    = 101
-    action     = "allow"
-    cidr_block = "0.0.0.0/0"
-    from_port  = 443
-    to_port    = 443  # Kubernetes API Server
-  }
-
-  ingress {
-    protocol   = 6  # TCP
-    rule_no    = 102
-    action     = "allow"
-    cidr_block = "0.0.0.0/0"
-    from_port  = 22
-    to_port    = 22  # SSH
-  }
-
-  ingress {
-    protocol   = 6
-    rule_no    = 104
-    action     = "allow"
-    cidr_block = "0.0.0.0/0"
-    from_port  = 3389
-    to_port    = 3389
+    from_port  = 0
+    to_port    = 0  # All ports
   }
 
   # Outbound Rules
