@@ -65,6 +65,8 @@
                 "ec2:ModifyLaunchTemplate",
                 "ec2:ModifyNetworkInterfaceAttribute",
                 "ec2:ModifyVolume",
+                "ec2:ModifyVolume",
+                "ec2:ModifyVpcAttribute",
                 "ec2:RevokeSecurityGroupEgress",
                 "ec2:RevokeSecurityGroupIngress",
                 "ec2:RunInstances",
