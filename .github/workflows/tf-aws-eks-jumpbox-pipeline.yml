@@ -191,7 +191,7 @@ jobs:
     
     # Setup Terraform CLI on the runner
     - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v2
+      uses: hashicorp/setup-terraform@v3
     
     # Initialise your Terraform working directory 
     - name: Terraform Init S3    
