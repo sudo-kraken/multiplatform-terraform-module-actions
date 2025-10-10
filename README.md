@@ -7,7 +7,7 @@
 </p>
 
 <h1 align="center">Repo Languages and Tools</h1>
- 
+
 <p align="center">
   <a href="https://www.terraform.io/"><img src="https://img.shields.io/badge/-Terraform-623CE4?style=flat&logo=terraform&logoColor=white" alt="Terraform" /></a>
   <a href="https://www.ansible.com/"><img src="https://img.shields.io/badge/Ansible-%231A1918.svg?style=flat&logo=ansible&logoColor=white" alt="Ansible" /></a>
@@ -28,11 +28,11 @@
 <br>
 <p align="center">
   <a href="https://www.buymeacoffee.com/jharrison94" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="60px" width="217px" >
-      
+
 ## Overview
 This repository, is the second part of my infrastructure-as-code (IAC) pipeline, it leverages Terraform to deploy virtual machines and other resources. It's designed to work in tandem with my other [repository](https://github.com/sudo-kraken/multiplatform-packer-vsphere-actions/tree/main), which uses Packer in vSphere to create the necessary templates for these deployments. There are additional modules here which do not utilise the other repo such as the AWS modules for VPC's and EKS.
 
-> [!NOTE]  
+> [!NOTE]
 > Within this repo, you'll find multiple Terraform modules capable of provisioning and customising a variety of resources across different providers such as AWS and VMware. Each module is accompanied by its own README, providing detailed instructions and prerequisites. It's crucial to read these READMEs thoroughly before proceeding with any deployment.
 
 ## Deploying a Virtual Machine using Terraform
