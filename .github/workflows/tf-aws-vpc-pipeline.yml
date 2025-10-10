@@ -61,7 +61,7 @@ jobs:
     steps:
       # Checkout the repository to the GitHub Actions runner 
       - name: Checkout
-        uses: actions/checkout@v4 
+        uses: actions/checkout@v5 
 
       # If main.tf does not exist, we generate a new one using user input
       - name: Check if main.tf exists
@@ -157,7 +157,7 @@ jobs:
     steps:
       # Checkout the repository to the GitHub Actions runner 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Fetch the latest commit  
       - name: Fetch the latest commit
