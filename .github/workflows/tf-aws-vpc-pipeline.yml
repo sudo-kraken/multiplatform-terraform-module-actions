@@ -61,7 +61,7 @@ jobs:
     steps:
       # Checkout the repository to the GitHub Actions runner 
       - name: Checkout
-        uses: actions/checkout@v5 
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5 
 
       # If main.tf does not exist, we generate a new one using user input
       - name: Check if main.tf exists
@@ -157,7 +157,7 @@ jobs:
     steps:
       # Checkout the repository to the GitHub Actions runner 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
       # Fetch the latest commit  
       - name: Fetch the latest commit
@@ -168,13 +168,13 @@ jobs:
         
       # Setup Node.js environment with a specific version
       - name: Node Setup
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: '22'      
       
       # Set up AWS CLI
       - name: Set up AWS CLI
-        uses: aws-actions/configure-aws-credentials@v3
+        uses: aws-actions/configure-aws-credentials@50ac8dd1e1b10d09dac7b8727528b91bed831ac0 # v3
         with:
           aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
@@ -182,7 +182,7 @@ jobs:
       
       # Setup Terraform CLI on the runner
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
 
       # Get VPC Name
       - name: Get VPC Name
