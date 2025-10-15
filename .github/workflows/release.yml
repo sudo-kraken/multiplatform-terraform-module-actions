@@ -59,7 +59,6 @@ jobs:
 
   prepare-artifacts:
     name: Prepare release artifacts
-    needs: create-draft-release
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -76,17 +75,19 @@ jobs:
           mkdir -p release
 
           # Create tar.gz with main script and essential files
-          tar -czf release/multiplatform-tf--${VERSION}.tar.gz \
+          tar -czf release/multiplatform-tf-${VERSION}.tar.gz \
             modules/ \
             README.md \
             LICENSE \
             SECURITY.md \
             SUPPORT.md
 
-          # Create checksums
+          # Create consolidated checksums.txt with sha256 lines for each tarball
           cd release
-          sha256sum multiplatform-tf--${VERSION}.tar.gz > multiplatform-tf--${VERSION}.tar.gz.sha256
-          sha512sum multiplatform-tf--${VERSION}.tar.gz > multiplatform-tf--${VERSION}.tar.gz.sha512
+          : > checksums.txt
+          for f in *.tar.gz; do
+            sha256sum "$f" >> checksums.txt
+          done
 
       - name: Upload artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -127,23 +128,24 @@ jobs:
 
       - name: Generate SBOM with Trivy
         run: |
-          trivy fs --format cyclonedx --output multiplatform-tf--${{ env.VERSION }}.sbom .
+          trivy fs --format cyclonedx --output multiplatform-tf-${{ env.VERSION }}.sbom .
 
       - name: Sign release artifacts
         run: |
           cd release
-
-          # Sign the tarball
           cosign sign-blob \
-            --bundle multiplatform-tf--${VERSION}.tar.gz.bundle \
-            multiplatform-tf--${VERSION}.tar.gz
-
-      - name: Sign SBOM
+            --bundle multiplatform-tf-${VERSION}.tar.gz.bundle \
+            multiplatform-tf-${VERSION}.tar.gz
+            
+      - name: Create SBOM attestation for the archive
         run: |
-          # Sign the SBOM file
-          cosign sign-blob \
-            --bundle multiplatform-tf--${{ env.VERSION }}.sbom.bundle \
-            multiplatform-tf--${{ env.VERSION }}.sbom
+          # Attach the SBOM to the tarball as an attestation bundle
+          cosign attest-blob -y \
+            --type cyclonedx \
+            --new-bundle-format \
+            --predicate multiplatform-tf-${{ env.VERSION }}.sbom \
+            --bundle multiplatform-tf-${{ env.VERSION }}.sbom.bundle \
+            release/multiplatform-tf-${{ env.VERSION }}.tar.gz
 
       - name: Upload signed artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -183,24 +185,25 @@ jobs:
       - name: Verify signatures
         run: |
           cosign verify-blob \
-            --bundle signed/release/multiplatform-tf--${VERSION}.tar.gz.bundle \
+            --bundle signed/release/multiplatform-tf-${VERSION}.tar.gz.bundle \
             --certificate-identity "https://github.com/${{ github.workflow_ref }}" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            release/multiplatform-tf--${VERSION}.tar.gz
+            release/multiplatform-tf-${VERSION}.tar.gz
 
-      - name: Verify SBOM signature
+      - name: Verify SBOM attestation
         run: |
-          cosign verify-blob \
-            --bundle signed/multiplatform-tf--${VERSION}.sbom.bundle \
+          cosign verify-blob-attestation \
+            --type cyclonedx \
+            --new-bundle-format \
+            --bundle signed/multiplatform-tf-${VERSION}.sbom.bundle \
             --certificate-identity "https://github.com/${{ github.workflow_ref }}" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            signed/multiplatform-tf--${VERSION}.sbom
+            release/multiplatform-tf-${VERSION}.tar.gz
 
       - name: Verify checksums
         run: |
           cd release
-          sha256sum -c multiplatform-tf--${VERSION}.tar.gz.sha256
-          sha512sum -c multiplatform-tf--${VERSION}.tar.gz.sha512
+          sha256sum -c checksums.txt
 
   publish-release:
     name: Publish release
