@@ -1,65 +1,155 @@
-<p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&pause=1000&width=435&lines=Terraform+Modules+for+GitHub+Actions" alt="Typing SVG"/>
-</p>
+<div align="center">
+<img src="docs/assets/logo.png" align="center" width="144px" height="144px"/>
 
-<p align="center">
-  <img src="https://media.giphy.com/media/hvRJCLFzcasrR4ia7z/giphy.gif" width="50" alt="Repo Languages and Tools"/>
-</p>
+### Multiplatform Terraform Module Actions
 
-<h1 align="center">Repo Languages and Tools</h1>
+_Terraform modules with ready-to-run GitHub Actions workflows for provisioning across AWS and VMware vSphere._
+</div>
 
-<p align="center">
-  <a href="https://www.terraform.io/"><img src="https://img.shields.io/badge/-Terraform-623CE4?style=flat&logo=terraform&logoColor=white" alt="Terraform" /></a>
-  <a href="https://www.ansible.com/"><img src="https://img.shields.io/badge/Ansible-%231A1918.svg?style=flat&logo=ansible&logoColor=white" alt="Ansible" /></a>
-  <a href="https://git-scm.com/"><img src="https://img.shields.io/badge/-Git-F05032?style=flat&logo=git&logoColor=white" alt="Git" /></a>
-  <a href="https://github.com/features/actions"><img src="https://img.shields.io/badge/-GitHub_Actions-2088FF?style=flat&logo=github-actions&logoColor=white" alt="GitHub Actions" /></a>
-  <a href="https://www.linux.org/"><img src="https://img.shields.io/badge/-Linux-FCC624?style=flat&logo=linux&logoColor=black" alt="Linux" /></a>
-  <a href="https://kubernetes.io/"><img src="https://img.shields.io/badge/-Kubernetes-326CE5?style=flat&logo=kubernetes&logoColor=white" alt="Kubernetes" /></a>
-  <a href="https://aws.amazon.com/"><img src="https://img.shields.io/badge/-AWS-232F3E?style=flat&logo=amazon-aws&logoColor=white" alt="AWS" /></a>
-  <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/-Docker-2496ED?style=flat&logo=docker&logoColor=white" alt="Docker" /></a>
-  <a href="https://www.nginx.com/"><img src="https://img.shields.io/badge/-Nginx-009639?style=flat&logo=nginx&logoColor=white" alt="Nginx" /></a>
-  <a href="https://www.gnu.org/software/bash/"><img src="https://img.shields.io/badge/-Bash-4EAA25?style=flat&logo=gnu-bash&logoColor=white" alt="Bash" /></a>
-  <a href="https://docs.microsoft.com/en-us/powershell/"><img src="https://img.shields.io/badge/-PowerShell-5391FE?style=flat&logo=powershell&logoColor=white" alt="PowerShell" /></a>
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/-Python-3776AB?style=flat&logo=python&logoColor=white" alt="Python" /></a>
-  <a href="https://grafana.com/"><img src="https://img.shields.io/badge/-Grafana-F46800?style=flat&logo=grafana&logoColor=white" alt="Grafana" /></a>
-  <a href="https://prometheus.io/"><img src="https://img.shields.io/badge/-Prometheus-E6522C?style=flat&logo=prometheus&logoColor=white" alt="Prometheus" /></a>
-</p>
+<div align="center">
 
-<br>
-<p align="center">
-  <a href="https://www.buymeacoffee.com/jharrison94" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="60px" width="217px" >
+[![Terraform](https://img.shields.io/badge/Terraform-Required-623CE4?logo=terraform&logoColor=white&style=for-the-badge)](https://www.terraform.io/)
+[![Terraform Version](https://img.shields.io/badge/Terraform-1.6%2B-623CE4?logo=terraform&logoColor=white&style=for-the-badge)](https://www.terraform.io/)
+
+</div>
+
+<div align="center">
+
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/sudo-kraken/multiplatform-terraform-module-actions?label=openssf%20scorecard&style=for-the-badge)](https://scorecard.dev/viewer/?uri=github.com/sudo-kraken/multiplatform-terraform-module-actions)
+
+</div>
+
+## Contents
+
+- [Overview](#overview)
+- [Architecture at a glance](#architecture-at-a-glance)
+- [Features](#features)
+- [Deploying a Virtual Machine using Terraform](#deploying-a-virtual-machine-using-terraform)
+- [Prerequisites](#prerequisites)
+- [Quick start](#quick-start)
+- [Repository structure](#repository-structure)
+- [Integration with the Packer repository vSphere modules only](#integration-with-the-packer-repository-vsphere-modules-only)
+- [Executing the IAC Actions](#executing-the-iac-actions)
+- [Secrets and inputs](#secrets-and-inputs)
+- [Troubleshooting](#troubleshooting)
+- [Licence](#licence)
+- [Security](#security)
+- [Contributing](#contributing)
+- [Support](#support)
 
 ## Overview
-This repository, is the second part of my infrastructure-as-code (IAC) pipeline, it leverages Terraform to deploy virtual machines and other resources. It's designed to work in tandem with my other [repository](https://github.com/sudo-kraken/multiplatform-packer-vsphere-actions/tree/main), which uses Packer in vSphere to create the necessary templates for these deployments. There are additional modules here which do not utilise the other repo such as the AWS modules for VPC's and EKS.
 
-> [!NOTE]
-> Within this repo, you'll find multiple Terraform modules capable of provisioning and customising a variety of resources across different providers such as AWS and VMware. Each module is accompanied by its own README, providing detailed instructions and prerequisites. It's crucial to read these READMEs thoroughly before proceeding with any deployment.
+This repository is the second part of an infrastructure as code pipeline and uses Terraform to deploy virtual machines and other resources. It works alongside the companion [Packer for vSphere repository](https://github.com/sudo-kraken/multiplatform-packer-vsphere-actions/tree/main), which builds VM templates consumed by the vSphere modules here. There are also modules that do not rely on Packer, including AWS modules for VPCs and EKS.
+
+> [!NOTE]  
+> Inside you will find multiple Terraform modules that provision and customise resources across providers such as AWS and VMware. Each module includes its own README with usage and prerequisites. Read the per-module README before running any workflow.
+
+## Architecture at a glance
+
+- Terraform modules for AWS and VMware vSphere
+- GitHub Actions workflows that compose a `main.tf` dynamically and run Terraform on a runner
+- Provider credentials and variables supplied via repository or organisation secrets
+- Optional integration with Packer-built vSphere templates
+
+## Features
+
+- Opinionated modules for common patterns such as AWS VPC and EKS, and vSphere VM deployment from templates
+- Workflows that:
+  - generate a tailored `main.tf` to wire the chosen module
+  - run `terraform init`, `plan` and `apply` on a GitHub runner
+- Inputs and secrets driven configuration to avoid hard-coding credentials
+- Modular layout encouraging reuse across environments
 
 ## Deploying a Virtual Machine using Terraform
-This section guides you through deploying a VM using one of our Terraform modules, executed via a GitHub runner - a critical component for running Terraform in a GitHub Action.
+
+Use one of the vSphere modules to deploy a VM from a Packer template and customise it. The provided Actions keep Terraform execution inside CI on a GitHub runner.
 
 ## Prerequisites
-Before diving into deployment, ensure you have:
-  - Configured the necessary infrastructure elements (VLANs for VMware, VPC's, IAM roles etc. for AWS).
-  - Cloned this repository to your GitHub account, renaming it appropriately.
-  - Secured access to the organisation-level GitHub secrets if using this within a GitHub org.
-  - Familiarised yourself with the repository's structure and content.
-  - To clone the GitHub repository using the CLI use following command:
-    ```code
-        $ git clone https://github.com/sudo-kraken/multiplatform-terraform-module-actions.git
-    ```
 
-## Integration with my Packer Repository (vSphere Modules Only)
-My Terraform vSphere-based modules are designed to use VM templates created by my Packer repository. Make sure you have the latest templates from the Packer repo, as they're essential for the VM deployment process.
+- Platform prerequisites prepared in advance  
+  - **VMware**: VLANs or networks, folders, resource pools and required permissions  
+  - **AWS**: IAM permissions, regions and any prerequisite networking if not created by the module
+- A copy of this repository in your GitHub account with Actions enabled
+- Access to required repository or organisation secrets
+- Familiarity with this repository’s structure and the module you plan to run
+- To clone with the CLI:
+  ```bash
+  git clone https://github.com/sudo-kraken/multiplatform-terraform-module-actions.git
+  ```
+
+## Quick start
+
+1. Fork or clone this repository.
+2. Review the README in the target module under `modules/`.
+3. Configure the necessary secrets in your repository or organisation.
+4. From the Actions tab, choose the workflow for your target module and run it with the required inputs.
+
+## Repository structure
+
+```
+.
+├── .github/                 # GitHub Actions workflows
+├── modules/                 # Terraform modules by provider or purpose
+├── .devcontainer/           # Optional devcontainer setup
+├── .vscode/                 # Editor settings
+├── CODE_OF_CONDUCT.md
+├── CONTRIBUTING.md
+├── SECURITY.md
+└── README.md
+```
+
+## Integration with the Packer repository vSphere modules only
+
+The vSphere modules expect VM templates produced by the companion Packer repository. Build and publish up-to-date templates to vSphere before running VM deployment modules here.
 
 ## Executing the IAC Actions
-The actions within this repo will generate a custom main.tf files to call the individual modules contained here, be sure to follow each of the modules instructions.
 
-All of the acitons perform the following functions:
+The workflows generate a custom `main.tf` for the selected module and execute Terraform. In summary they:
 
-1. Generates a main.tf file: This file contains the Terraform configuration code that specifies the desired infrastructure resources, such as virtual machines, networks, and storage.
+1. Generate a `main.tf` that wires provider configuration and the chosen module with your inputs.
+2. Execute `terraform init` and `terraform apply` to provision the infrastructure.
 
-2. Executes the main.tf file: The code uses the Terraform CLI (Command-Line Interface) to apply the configuration defined in the main.tf file. This triggers the provisioning of the infrastructure resources specified in the configuration.
+> [!NOTE]
+> Provide the required input variables and credentials such as cloud access keys or vSphere credentials, otherwise the run will fail. See each module’s README for exact variables.
 
->[!Note]
->Make sure to provide the necessary input variables and authentication credentials, such as access keys or service account credentials, for the Terraform execution to succeed.
+## Secrets and inputs
+
+Typical secrets and inputs:
+
+- **AWS**
+  - `AWS_ACCESS_KEY_ID`
+  - `AWS_SECRET_ACCESS_KEY`
+  - `AWS_REGION`
+- **vSphere**
+  - `VSPHERE_SERVER`
+  - `VSPHERE_USER`
+  - `VSPHERE_PASSWORD`
+  - Module inputs for datacentre, cluster, datastore and network names
+
+Names and scopes can vary by module. Always refer to the module README for authoritative details.
+
+## Troubleshooting
+
+- **Plan or apply fails early**  
+  Check that required secrets are present and correctly scoped. Verify IAM or vSphere permissions.
+- **Template not found**  
+  For vSphere, ensure the Packer-built template exists and is accessible to the account used by Terraform.
+- **Input validation errors**  
+  Re-run the workflow and confirm inputs match the module’s variable names and types.
+
+## Licence
+
+This project is licensed under the MIT Licence. See the [LICENCE](LICENCE) file for details.
+
+## Security
+
+If you discover a security issue, please review and follow the guidance in [SECURITY.md](SECURITY.md), or open a private security-focused issue with minimal details and request a secure contact channel.
+
+## Contributing
+
+Feel free to open issues or submit pull requests if you have suggestions or improvements.  
+See [CONTRIBUTING.md](CONTRIBUTING.md)
+
+## Support
+
+Open an [issue](/../../issues) with as much detail as possible, including the target platform, the module you used and any workflow logs that help reproduce the problem.
